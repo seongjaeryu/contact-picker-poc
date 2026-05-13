@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Contact Picker API Test</title>
+  <title>Contact Input PoC v2</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -15,8 +15,8 @@
       line-height: 1.5;
     }
     .container { max-width: 600px; margin: 0 auto; }
-    h1 { font-size: 20px; margin-bottom: 8px; }
-    .subtitle { color: #6e6e73; font-size: 14px; margin-bottom: 24px; }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    .subtitle { color: #6e6e73; font-size: 14px; margin-bottom: 20px; }
     .card {
       background: white;
       border-radius: 12px;
@@ -32,22 +32,16 @@
       letter-spacing: 0.5px;
       margin-bottom: 8px;
     }
-    .card-content {
-      font-family: ui-monospace, "SF Mono", Monaco, monospace;
-      font-size: 13px;
-      word-break: break-all;
-      white-space: pre-wrap;
-    }
-    .status {
+    .badge {
       display: inline-block;
       padding: 4px 10px;
       border-radius: 999px;
       font-size: 13px;
       font-weight: 600;
     }
-    .status.ok { background: #d1f7d1; color: #1a7f1a; }
-    .status.ng { background: #fee; color: #c33; }
-    .status.warn { background: #fff4d1; color: #8a6300; }
+    .badge.android { background: #d1f7d1; color: #1a7f1a; }
+    .badge.ios { background: #d1e7ff; color: #0051d5; }
+    .badge.other { background: #fff4d1; color: #8a6300; }
     button {
       width: 100%;
       padding: 16px;
@@ -58,134 +52,221 @@
       font-size: 17px;
       font-weight: 600;
       cursor: pointer;
-      margin-top: 8px;
     }
     button:disabled { background: #c7c7cc; cursor: not-allowed; }
-    button:active:not(:disabled) { background: #0051d5; }
-    .contact-item {
+    button.secondary {
+      background: white;
+      color: #007aff;
+      border: 1.5px dashed #007aff;
+    }
+    .input-set {
+      background: #f5f5f7;
+      border-radius: 10px;
       padding: 12px;
+      margin-bottom: 10px;
+      position: relative;
+    }
+    .input-set-label {
+      font-size: 12px;
+      color: #6e6e73;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    input[type="text"], input[type="tel"] {
+      width: 100%;
+      padding: 14px 12px;
+      border: 1px solid #d2d2d7;
+      border-radius: 10px;
+      font-size: 17px;
+      background: white;
+      margin-bottom: 8px;
+    }
+    input:focus { outline: none; border-color: #007aff; }
+    .remove-btn {
+      background: none;
+      border: none;
+      color: #ff3b30;
+      width: auto;
+      padding: 4px 8px;
+      font-size: 13px;
+      position: absolute;
+      top: 8px;
+      right: 8px;
+    }
+    .hint {
+      background: #fff4d1;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 13px;
+      color: #8a6300;
+      margin-bottom: 12px;
+    }
+    .hint b { display: block; margin-bottom: 4px; }
+    .contact-item {
+      padding: 10px 12px;
       background: #f5f5f7;
       border-radius: 8px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       font-size: 14px;
     }
-    .contact-name { font-weight: 600; margin-bottom: 4px; }
+    .contact-name { font-weight: 600; }
     .contact-tel { color: #6e6e73; font-family: ui-monospace, monospace; }
-    .error { color: #c33; }
+    .mono { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; }
     .footer { text-align: center; color: #6e6e73; font-size: 12px; margin-top: 24px; }
+    details { margin-top: 10px; }
+    summary { cursor: pointer; font-size: 13px; color: #6e6e73; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Contact Picker API 테스트</h1>
-    <p class="subtitle">웹 브라우저에서 폰 연락처 접근 가능 여부 검증</p>
+    <h1>연락처 입력 PoC v2</h1>
+    <p class="subtitle">OS별 분기 동작 검증</p>
 
     <div class="card">
-      <div class="card-title">1. 환경 정보</div>
-      <div class="card-content" id="ua"></div>
+      <div class="card-title">감지 결과</div>
+      <div id="detect"></div>
+      <details>
+        <summary>UA 보기</summary>
+        <div class="mono" id="ua" style="margin-top:8px;"></div>
+      </details>
     </div>
 
-    <div class="card">
-      <div class="card-title">2. API 지원 여부</div>
-      <div id="support"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">3. 지원 속성 (getProperties)</div>
-      <div class="card-content" id="props">확인 중...</div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">4. 실제 호출 테스트</div>
+    <!-- Android flow -->
+    <div class="card" id="androidFlow" style="display:none">
+      <div class="card-title">Android 흐름 (Contact Picker API)</div>
+      <p style="font-size:14px; margin:0 0 12px 0;">버튼을 누르면 네이티브 연락처 선택 화면이 열립니다. 여러 명 한 번에 선택 가능합니다.</p>
       <button id="pickBtn">연락처 선택</button>
-      <div id="result" style="margin-top: 12px;"></div>
+      <div id="androidResult" style="margin-top:12px;"></div>
     </div>
 
-    <p class="footer">Secure context: <span id="secure"></span></p>
+    <!-- iOS flow -->
+    <div class="card" id="iosFlow" style="display:none">
+      <div class="card-title">iOS 흐름 (Safari AutoFill)</div>
+      <div class="hint">
+        <b>📱 테스트 방법</b>
+        아래 "이름" 또는 "전화번호" 입력란을 탭하면 키보드 위에 "AutoFill Contact" 또는 "연락처 자동 채움" 버튼이 나타납니다. 그걸 누르면 "내 정보" 외에 "다른 연락처" 선택지로 이동해 연락처 picker가 열립니다.
+      </div>
+      <div id="iosInputs"></div>
+      <button class="secondary" id="addRowBtn" style="margin-top:8px;">+ 연락처 칸 추가</button>
+      <details>
+        <summary>현재 입력 상태 (디버그)</summary>
+        <div class="mono" id="iosDebug" style="margin-top:8px;"></div>
+      </details>
+    </div>
+
+    <!-- Unknown / Desktop -->
+    <div class="card" id="otherFlow" style="display:none">
+      <div class="card-title">미지원 환경</div>
+      <p style="font-size:14px; margin:0;">모바일(Android/iOS)에서 접속해 주세요.</p>
+    </div>
+
+    <p class="footer">PoC v2 · OS detection + dual UI</p>
   </div>
 
   <script>
-    // 1. UA
-    document.getElementById('ua').textContent = navigator.userAgent;
+    // ============ OS Detection ============
+    const ua = navigator.userAgent;
+    document.getElementById('ua').textContent = ua;
 
-    // Secure context
-    document.getElementById('secure').textContent = window.isSecureContext ? '✅ HTTPS' : '❌ HTTP (필수)';
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/.test(ua);
+    const isInApp = /KAKAOTALK|NAVER\(inapp|FB_IAB|FBAN|Instagram|Line/i.test(ua);
 
-    // 2. Support
-    const supportEl = document.getElementById('support');
-    const hasContacts = 'contacts' in navigator;
-    const hasContactsManager = 'ContactsManager' in window;
-    const isSupported = hasContacts && hasContactsManager;
+    const detectEl = document.getElementById('detect');
+    let osLabel, osClass;
+    if (isAndroid) { osLabel = 'Android'; osClass = 'android'; }
+    else if (isIOS) { osLabel = 'iOS'; osClass = 'ios'; }
+    else { osLabel = 'Desktop/기타'; osClass = 'other'; }
 
-    supportEl.innerHTML = `
-      <div class="card-content">
-        navigator.contacts: ${hasContacts ? '✅' : '❌'}<br>
-        ContactsManager: ${hasContactsManager ? '✅' : '❌'}
-      </div>
-      <div style="margin-top:12px;">
-        <span class="status ${isSupported ? 'ok' : 'ng'}">
-          ${isSupported ? '지원됨' : '미지원'}
-        </span>
-      </div>
-    `;
+    detectEl.innerHTML =
+      '<span class="badge ' + osClass + '">' + osLabel + '</span>' +
+      (isInApp ? '<span class="badge other" style="margin-left:6px;">⚠️ 인앱 브라우저</span>' : '') +
+      '<div style="margin-top:8px; font-size:13px;">Contact Picker API: <b>' +
+      (('contacts' in navigator && 'ContactsManager' in window) ? '✅ 지원' : '❌ 미지원') +
+      '</b></div>';
 
-    // 3. getProperties
-    const propsEl = document.getElementById('props');
-    if (isSupported) {
-      navigator.contacts.getProperties()
-        .then(props => { propsEl.textContent = JSON.stringify(props, null, 2); })
-        .catch(err => { propsEl.innerHTML = `<span class="error">에러: ${err.message}</span>`; });
-    } else {
-      propsEl.textContent = '미지원 환경 - 호출 불가';
-    }
+    // ============ Android Flow ============
+    if (isAndroid) {
+      document.getElementById('androidFlow').style.display = 'block';
+      const btn = document.getElementById('pickBtn');
+      const result = document.getElementById('androidResult');
 
-    // 4. Pick
-    const btn = document.getElementById('pickBtn');
-    const resultEl = document.getElementById('result');
-
-    if (!isSupported) {
-      btn.disabled = true;
-      btn.textContent = '미지원';
-    }
-
-    btn.addEventListener('click', async () => {
-      resultEl.innerHTML = '';
-      try {
-        const contacts = await navigator.contacts.select(
-          ['name', 'tel'],
-          { multiple: true }
-        );
-
-        if (contacts.length === 0) {
-          resultEl.innerHTML = '<div class="card-content">선택된 연락처 없음 (사용자 취소)</div>';
-          return;
-        }
-
-        const html = contacts.map(c => `
-          <div class="contact-item">
-            <div class="contact-name">${(c.name && c.name[0]) || '(이름 없음)'}</div>
-            <div class="contact-tel">${(c.tel && c.tel.join(', ')) || '(번호 없음)'}</div>
-          </div>
-        `).join('');
-
-        resultEl.innerHTML = `
-          <div class="card-content" style="margin-bottom:12px;">
-            <span class="status ok">${contacts.length}개 선택됨</span>
-          </div>
-          ${html}
-          <details style="margin-top:12px;">
-            <summary style="cursor:pointer;font-size:13px;color:#6e6e73;">Raw JSON</summary>
-            <pre class="card-content" style="background:#f5f5f7;padding:8px;border-radius:6px;margin-top:8px;">${JSON.stringify(contacts, null, 2)}</pre>
-          </details>
-        `;
-      } catch (err) {
-        resultEl.innerHTML = `
-          <div class="card-content error">
-            ❌ ${err.name}: ${err.message}
-          </div>
-        `;
+      const isSupported = 'contacts' in navigator && 'ContactsManager' in window;
+      if (!isSupported) {
+        btn.disabled = true;
+        btn.textContent = 'Contact Picker 미지원';
       }
-    });
+
+      btn.addEventListener('click', async () => {
+        result.innerHTML = '';
+        try {
+          const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: true });
+          if (contacts.length === 0) {
+            result.innerHTML = '<div style="font-size:13px;color:#6e6e73;">선택된 연락처 없음</div>';
+            return;
+          }
+          result.innerHTML = '<div style="font-size:13px;color:#1a7f1a;margin-bottom:8px;">✅ ' + contacts.length + '개 선택됨</div>' +
+            contacts.map(c => '<div class="contact-item"><div class="contact-name">' +
+              ((c.name && c.name[0]) || '(이름 없음)') +
+              '</div><div class="contact-tel">' +
+              ((c.tel && c.tel.join(', ')) || '(번호 없음)') +
+              '</div></div>').join('');
+        } catch (err) {
+          result.innerHTML = '<div style="color:#c33;font-size:13px;">❌ ' + err.name + ': ' + err.message + '</div>';
+        }
+      });
+    }
+
+    // ============ iOS Flow ============
+    if (isIOS) {
+      document.getElementById('iosFlow').style.display = 'block';
+      const inputsEl = document.getElementById('iosInputs');
+      const debugEl = document.getElementById('iosDebug');
+      let rowCount = 0;
+
+      function createRow() {
+        rowCount++;
+        const idx = rowCount;
+        const div = document.createElement('div');
+        div.className = 'input-set';
+        div.innerHTML =
+          '<div class="input-set-label">연락처 ' + idx + '</div>' +
+          '<input type="text" name="name_' + idx + '" autocomplete="name" placeholder="이름" data-field="name" />' +
+          '<input type="tel" name="tel_' + idx + '" autocomplete="tel" placeholder="전화번호" data-field="tel" />' +
+          (idx > 1 ? '<button class="remove-btn" data-action="remove">삭제</button>' : '');
+        inputsEl.appendChild(div);
+
+        div.querySelectorAll('input').forEach(input => {
+          input.addEventListener('input', updateDebug);
+          input.addEventListener('change', updateDebug);
+        });
+        const removeBtn = div.querySelector('[data-action="remove"]');
+        if (removeBtn) {
+          removeBtn.addEventListener('click', () => {
+            div.remove();
+            updateDebug();
+          });
+        }
+      }
+
+      function updateDebug() {
+        const sets = inputsEl.querySelectorAll('.input-set');
+        const data = Array.from(sets).map(set => ({
+          name: set.querySelector('[data-field="name"]').value,
+          tel: set.querySelector('[data-field="tel"]').value
+        }));
+        debugEl.textContent = JSON.stringify(data, null, 2);
+      }
+
+      document.getElementById('addRowBtn').addEventListener('click', createRow);
+      createRow();
+      updateDebug();
+    }
+
+    // ============ Other ============
+    if (!isAndroid && !isIOS) {
+      document.getElementById('otherFlow').style.display = 'block';
+    }
   </script>
 </body>
 </html>
