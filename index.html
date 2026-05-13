@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Contact Input PoC v2</title>
+  <title>Contact Input PoC v3</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -24,6 +24,10 @@
       margin-bottom: 12px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
+    .card.warning {
+      background: #fff4d1;
+      border: 1px solid #f0d97d;
+    }
     .card-title {
       font-size: 12px;
       font-weight: 600;
@@ -42,6 +46,7 @@
     .badge.android { background: #d1f7d1; color: #1a7f1a; }
     .badge.ios { background: #d1e7ff; color: #0051d5; }
     .badge.other { background: #fff4d1; color: #8a6300; }
+    .badge.chrome-ios { background: #ffe0d1; color: #c54a1a; }
     button {
       width: 100%;
       padding: 16px;
@@ -102,6 +107,48 @@
       margin-bottom: 12px;
     }
     .hint b { display: block; margin-bottom: 4px; }
+    .guide-steps {
+      list-style: none;
+      padding: 0;
+      margin: 12px 0 0 0;
+      counter-reset: step;
+    }
+    .guide-steps li {
+      counter-increment: step;
+      padding: 10px 12px 10px 40px;
+      background: white;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      font-size: 14px;
+      position: relative;
+    }
+    .guide-steps li::before {
+      content: counter(step);
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 22px;
+      height: 22px;
+      background: #007aff;
+      color: white;
+      border-radius: 50%;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .copy-url {
+      background: #f5f5f7;
+      border-radius: 8px;
+      padding: 12px;
+      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      word-break: break-all;
+      margin-top: 8px;
+      color: #1d1d1f;
+    }
     .contact-item {
       padding: 10px 12px;
       background: #f5f5f7;
@@ -119,8 +166,8 @@
 </head>
 <body>
   <div class="container">
-    <h1>연락처 입력 PoC v2</h1>
-    <p class="subtitle">OS별 분기 동작 검증</p>
+    <h1>연락처 입력 PoC v3</h1>
+    <p class="subtitle">OS+브라우저 분기 · Safari 유도 · 자동 focus 검증</p>
 
     <div class="card">
       <div class="card-title">감지 결과</div>
@@ -128,6 +175,32 @@
       <details>
         <summary>UA 보기</summary>
         <div class="mono" id="ua" style="margin-top:8px;"></div>
+      </details>
+    </div>
+
+    <!-- iOS Chrome warning -->
+    <div class="card warning" id="iosChromeWarning" style="display:none">
+      <div class="card-title">⚠️ Safari로 열어주세요</div>
+      <p style="font-size:14px; margin:0 0 12px 0;">
+        Chrome에서는 연락처를 직접 가져올 수 없습니다. <b>Safari로 열어야</b> 폰의 연락처에서 선택할 수 있습니다.
+      </p>
+
+      <a id="openSafariBtn" href="#" style="display:block; text-decoration:none;">
+        <button style="margin-bottom:10px;">🧭 Safari로 열기</button>
+      </a>
+
+      <details>
+        <summary>버튼이 작동하지 않을 때</summary>
+        <p style="font-size:13px; margin:8px 0; color:#8a6300;">
+          iOS 16 등 일부 버전에서는 위 버튼이 동작하지 않습니다. 아래 방법을 사용해 주세요.
+        </p>
+        <ol class="guide-steps">
+          <li>화면 아래쪽 <b>⋯ (점 세 개)</b> 메뉴 탭</li>
+          <li><b>"Safari에서 열기"</b> 탭</li>
+        </ol>
+        <p style="font-size:13px; margin:12px 0 4px 0; color:#8a6300;">또는 URL 복사 후 Safari 주소창에 붙여넣기:</p>
+        <div class="copy-url" id="copyUrl"></div>
+        <button id="copyBtn" style="margin-top:8px;">URL 복사</button>
       </details>
     </div>
 
@@ -139,51 +212,85 @@
       <div id="androidResult" style="margin-top:12px;"></div>
     </div>
 
-    <!-- iOS flow -->
+    <!-- iOS Safari flow -->
     <div class="card" id="iosFlow" style="display:none">
-      <div class="card-title">iOS 흐름 (Safari AutoFill)</div>
+      <div class="card-title">iOS Safari 흐름 (AutoFill)</div>
       <div class="hint">
         <b>📱 테스트 방법</b>
-        아래 "이름" 또는 "전화번호" 입력란을 탭하면 키보드 위에 "AutoFill Contact" 또는 "연락처 자동 채움" 버튼이 나타납니다. 그걸 누르면 "내 정보" 외에 "다른 연락처" 선택지로 이동해 연락처 picker가 열립니다.
+        "이름" 또는 "전화번호" 입력란을 탭하면 키보드 위에 "연락처 자동 채움" 버튼이 나타납니다. → "다른 연락처" 선택 → 연락처 picker → 선택 → "자동 완성". 한 명당 이름+전화 두 필드가 동시에 채워집니다.
       </div>
-      <div id="iosInputs"></div>
+      <form id="iosForm">
+        <div id="iosInputs"></div>
+      </form>
       <button class="secondary" id="addRowBtn" style="margin-top:8px;">+ 연락처 칸 추가</button>
       <details>
         <summary>현재 입력 상태 (디버그)</summary>
         <div class="mono" id="iosDebug" style="margin-top:8px;"></div>
+      </details>
+      <details>
+        <summary>자동 focus 시도 결과 로그</summary>
+        <div class="mono" id="focusLog" style="margin-top:8px; color:#6e6e73;">아직 시도 없음</div>
       </details>
     </div>
 
     <!-- Unknown / Desktop -->
     <div class="card" id="otherFlow" style="display:none">
       <div class="card-title">미지원 환경</div>
-      <p style="font-size:14px; margin:0;">모바일(Android/iOS)에서 접속해 주세요.</p>
+      <p style="font-size:14px; margin:0;">모바일(Android/iOS Safari)에서 접속해 주세요.</p>
     </div>
 
-    <p class="footer">PoC v2 · OS detection + dual UI</p>
+    <p class="footer">PoC v3 · OS+Browser detection</p>
   </div>
 
   <script>
-    // ============ OS Detection ============
+    // ============ Detection ============
     const ua = navigator.userAgent;
     document.getElementById('ua').textContent = ua;
 
     const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     const isAndroid = /Android/.test(ua);
+    // iOS Chrome uses CriOS, Firefox uses FxiOS, Edge uses EdgiOS, etc.
+    const isIOSChrome = isIOS && /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+    const isIOSSafari = isIOS && !isIOSChrome && /Safari/.test(ua);
     const isInApp = /KAKAOTALK|NAVER\(inapp|FB_IAB|FBAN|Instagram|Line/i.test(ua);
 
     const detectEl = document.getElementById('detect');
-    let osLabel, osClass;
-    if (isAndroid) { osLabel = 'Android'; osClass = 'android'; }
-    else if (isIOS) { osLabel = 'iOS'; osClass = 'ios'; }
-    else { osLabel = 'Desktop/기타'; osClass = 'other'; }
+    let osBadge = '';
+    if (isAndroid) osBadge = '<span class="badge android">Android</span>';
+    else if (isIOSSafari) osBadge = '<span class="badge ios">iOS Safari</span>';
+    else if (isIOSChrome) osBadge = '<span class="badge chrome-ios">iOS Chrome/기타 브라우저</span>';
+    else if (isIOS) osBadge = '<span class="badge ios">iOS</span>';
+    else osBadge = '<span class="badge other">Desktop/기타</span>';
 
     detectEl.innerHTML =
-      '<span class="badge ' + osClass + '">' + osLabel + '</span>' +
+      osBadge +
       (isInApp ? '<span class="badge other" style="margin-left:6px;">⚠️ 인앱 브라우저</span>' : '') +
       '<div style="margin-top:8px; font-size:13px;">Contact Picker API: <b>' +
       (('contacts' in navigator && 'ContactsManager' in window) ? '✅ 지원' : '❌ 미지원') +
       '</b></div>';
+
+    // ============ iOS Chrome → Safari guide ============
+    if (isIOSChrome || (isIOS && isInApp)) {
+      document.getElementById('iosChromeWarning').style.display = 'block';
+      const currentUrl = window.location.href;
+      document.getElementById('copyUrl').textContent = currentUrl;
+
+      // x-safari-https:// 스킴으로 변환 (iOS 15, 17, 18+ 비공식 지원)
+      const safariUrl = currentUrl.replace(/^https?:/, 'x-safari-https:');
+      document.getElementById('openSafariBtn').setAttribute('href', safariUrl);
+
+      document.getElementById('copyBtn').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(currentUrl);
+          document.getElementById('copyBtn').textContent = '✅ 복사됨';
+          setTimeout(() => {
+            document.getElementById('copyBtn').textContent = 'URL 복사';
+          }, 2000);
+        } catch (err) {
+          alert('복사 실패. URL을 직접 길게 눌러 복사해 주세요.');
+        }
+      });
+    }
 
     // ============ Android Flow ============
     if (isAndroid) {
@@ -217,14 +324,20 @@
       });
     }
 
-    // ============ iOS Flow ============
-    if (isIOS) {
+    // ============ iOS Safari Flow ============
+    if (isIOSSafari) {
       document.getElementById('iosFlow').style.display = 'block';
       const inputsEl = document.getElementById('iosInputs');
       const debugEl = document.getElementById('iosDebug');
+      const focusLogEl = document.getElementById('focusLog');
       let rowCount = 0;
 
-      function createRow() {
+      function logFocus(msg) {
+        const time = new Date().toLocaleTimeString();
+        focusLogEl.innerHTML = '[' + time + '] ' + msg + '<br>' + focusLogEl.innerHTML;
+      }
+
+      function createRow(autoFocus) {
         rowCount++;
         const idx = rowCount;
         const div = document.createElement('div');
@@ -236,16 +349,38 @@
           (idx > 1 ? '<button class="remove-btn" data-action="remove">삭제</button>' : '');
         inputsEl.appendChild(div);
 
-        div.querySelectorAll('input').forEach(input => {
+        const nameInput = div.querySelector('[data-field="name"]');
+        const telInput = div.querySelector('[data-field="tel"]');
+
+        [nameInput, telInput].forEach(input => {
           input.addEventListener('input', updateDebug);
           input.addEventListener('change', updateDebug);
         });
+
         const removeBtn = div.querySelector('[data-action="remove"]');
         if (removeBtn) {
           removeBtn.addEventListener('click', () => {
             div.remove();
             updateDebug();
           });
+        }
+
+        // 자동 focus 시도 (사용자 제스처 직후만 통과 가능)
+        if (autoFocus) {
+          // 동기 시도
+          try {
+            nameInput.focus();
+            const wasFocused = document.activeElement === nameInput;
+            logFocus('동기 focus() 시도 → ' + (wasFocused ? '✅ 성공' : '❌ 차단됨'));
+          } catch (e) {
+            logFocus('동기 focus() 에러: ' + e.message);
+          }
+
+          // 비동기 fallback도 시도 (대부분 iOS에서 차단되지만 기록용)
+          setTimeout(() => {
+            const wasFocused = document.activeElement === nameInput;
+            logFocus('100ms 후 상태: ' + (wasFocused ? '✅ focus 유지됨' : '❌ focus 해제됨'));
+          }, 100);
         }
       }
 
@@ -258,13 +393,16 @@
         debugEl.textContent = JSON.stringify(data, null, 2);
       }
 
-      document.getElementById('addRowBtn').addEventListener('click', createRow);
-      createRow();
+      document.getElementById('addRowBtn').addEventListener('click', () => {
+        createRow(true); // 사용자 제스처 직후 → focus 시도
+      });
+
+      createRow(false); // 첫 칸은 페이지 로드 시 → focus 시도 안 함
       updateDebug();
     }
 
     // ============ Other ============
-    if (!isAndroid && !isIOS) {
+    if (!isAndroid && !isIOSSafari && !isIOSChrome) {
       document.getElementById('otherFlow').style.display = 'block';
     }
   </script>
